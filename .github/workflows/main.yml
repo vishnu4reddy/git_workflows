@@ -1,30 +1,23 @@
 name: Rebase Open PRs on Merge
-on:
+'on':
   push:
     branches:
-      - main   
+      - main
 jobs:
   rebase:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
+      - name: Checkout the repository
         uses: actions/checkout@v4
-
-      - name: Set up Git
-        run: |
-          git config user.name "vishnu4reddy"
-          git config user.email "vishnu4reddy"
-
-      - name: Install GitHub CLI
+      - name: Install Github CLI Authenticate
         run: |
           sudo apt-get install gh
-        
+          echi "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
       - name: Get list of open PRs
         id: pr_list
-        run: |
-          prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
-          echo "::set-output name=prs::$prs"
+        run: >
+          prs=$(gh pr list --state open --json number,headRefName --jq '.[] |
+          "\(.number) \(.headRefName)"')
       - name: Rebase each open PR
         run: |
           for pr in $(echo "${{ steps.pr_list.outputs.prs }}" | tr " " "\n")
@@ -32,18 +25,20 @@ jobs:
             pr_number=$(echo $pr | awk '{print $1}')
             pr_branch=$(echo $pr | awk '{print $2}')
             
-            echo "Rebasing PR $pr_number ($pr_branch)"
-
+            echo "Rebasing PR #$pr_number ($pr_branch)"
+            #configure user for the git operations
+            git config user.name "vishnu4reddy"
             # Fetch the base branch (main)
-            git fetch origin main
+            git fetch origin main:main
 
             # Checkout the PR branch and rebase onto the base branch
             git checkout $pr_branch
-            git rebase main
+            git rebase main || {
+            echo "Rebase failed for PR #$pr_number. Please provide the conflicts manually."
+            exit 1
+            }
 
             # Push the rebased branch (force-push safely)
-            # pr branch is $pr_branch
             git push origin $pr_branch --force-with-lease
           done
-    env:
-        GH_TOKEN: ${{ github.token }}
+
