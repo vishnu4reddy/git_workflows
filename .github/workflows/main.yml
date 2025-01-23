@@ -20,8 +20,9 @@ jobs:
       - name: Get list of open PRs
         id: pr_list
         run: |
-          prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
-          echo "prs=$prs" >> $GITHUB_ENV
+          prs=$(gh pr list --state open --json number,headRefName --jq -r '.[] | "\(.number) \(.headRefName)"')
+          echo "prs=\"$prs\"" >> $GITHUB_ENV
+
 
       - name: Debug PR List
         run: |
