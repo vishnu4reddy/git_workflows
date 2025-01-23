@@ -2,7 +2,7 @@ name: Rebase Open PRs on Merge
 on:
   push:
     branches:
-      - master   
+      - main   
 jobs:
   rebase:
     runs-on: ubuntu-latest
@@ -38,7 +38,7 @@ jobs:
             echo "Rebasing PR #$pr_number ($pr_branch)"
 
             # Fetch the base branch (master)
-            git fetch origin master
+            git fetch origin main
 
             # Checkout the PR branch and rebase onto the base branch
             git checkout $pr_branch
