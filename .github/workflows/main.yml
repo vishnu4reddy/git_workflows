@@ -31,14 +31,14 @@ jobs:
         run: |
           # Loop through each PR entry
           for pr in ${{ env.prs }}; do
-            # Extract PR number and branch name
-            pr_number=$(echo $pr | cut -d ' ' -f 1)
-            pr_branch=$(echo $pr | cut -d ' ' -f 2)
+            # Extract PR number and branch name from the list
+            pr_number=$(echo $pr | awk '{print $1}')
+            pr_branch=$(echo $pr | awk '{print $2}')
 
             # Debug output to verify PR number and branch
             echo "Rebasing PR #$pr_number (Branch: $pr_branch)"
-
-            # Ensure we are dealing with a valid branch
+            
+            # Ensure the PR branch is not empty
             if [ -z "$pr_branch" ]; then
               echo "No branch found for PR #$pr_number"
               continue
@@ -66,6 +66,5 @@ jobs:
             # Switch back to the main branch (no need to delete temp-branch)
             git checkout main
           done
-
 
 
