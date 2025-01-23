@@ -14,17 +14,22 @@ jobs:
       - name: Set up Git
         run: |
           git config user.name "vishnu4reddy" 
-          git config user.email "vishnu4reddy" 
 
       - name: Install GitHub CLI
         run: |
           sudo apt-get install gh
-
+        
       - name: Get list of open PRs
         id: pr_list
         run: |
           prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
           echo "::set-output name=prs::$prs"
+      
+      - name: Debug - Show current commit history on main branch
+        run: |
+          echo "Fetching latest main branch history..."
+          git fetch origin main
+          git log --oneline --decorate --graph origin/main
 
       - name: Rebase each open PR
         run: |
@@ -32,7 +37,7 @@ jobs:
           do
             pr_number=$(echo $pr | awk '{print $1}')
             pr_branch=$(echo $pr | awk '{print $2}')
-
+            
             echo "Rebasing PR #$pr_number ($pr_branch)"
 
             # Fetch the base branch (main)
@@ -41,16 +46,35 @@ jobs:
             # Checkout the PR branch
             git checkout $pr_branch
 
-            # Check if the PR is already up-to-date with the base branch (main)
-            if git merge-base --is-ancestor origin/main HEAD; then
-              echo "PR #$pr_number is already up-to-date with main, skipping rebase."
-            else
-              # Rebase onto the latest main branch
-              git rebase origin/main
+            # Show the commit history of the PR branch before rebase
+            echo "PR $pr_number ($pr_branch) before rebase:"
+            git log --oneline --decorate --graph
 
-              # Push the rebased branch (force-push safely)
-              git push origin $pr_branch --force-with-lease
+            # Rebase onto the main branch
+            echo "Rebasing $pr_branch onto main branch..."
+            git rebase origin/main
+
+            # If there are conflicts during rebase, fail the job
+            if [[ $(git status | grep "Unmerged paths") ]]; then
+              echo "::error ::Merge conflict occurred in PR $pr_number ($pr_branch). Please resolve manually."
+              exit 1
             fi
+
+            # Show the commit history of the PR branch after rebase
+            echo "PR $pr_number ($pr_branch) after rebase:"
+            git log --oneline --decorate --graph
+
+            # Push the rebased branch (force-push safely)
+            echo "Force-pushing rebased branch $pr_branch to origin..."
+            git push origin $pr_branch --force-with-lease
+
           done
+
+      - name: Debug Final commit history check
+        run: |
+          echo "Checking final commit history after all rebases..."
+          git log --oneline --decorate --graph
+
     env:
-      GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ github.token }}
+
