@@ -4,7 +4,8 @@ on:
     branches:
       - master  
 env:
-  gh_token = ""
+  app_name: ${{"git/-workflows"}}
+  gh_token: ${{ secrets.GLCP_GH_TOKEN }}
   
 jobs:
   rebase:
