@@ -14,6 +14,7 @@ jobs:
       - name: Set up Git
         run: |
           git config user.name "vishnu4reddy" 
+          git config user.email "vishnu4reddy" 
 
       - name: Install GitHub CLI
         run: |
@@ -40,7 +41,7 @@ jobs:
             
             echo "Rebasing PR #$pr_number ($pr_branch)"
 
-            # Fetch the base branch (main)
+            # Fetch the latest changes from the base branch (main)
             git fetch origin main
 
             # Checkout the PR branch
@@ -50,9 +51,9 @@ jobs:
             echo "PR $pr_number ($pr_branch) before rebase:"
             git log --oneline --decorate --graph
 
-            # Rebase onto the main branch
+            # Perform the rebase onto the main branch
             echo "Rebasing $pr_branch onto main branch..."
-            git rebase origin/main
+            git rebase --onto origin/main $(git merge-base origin/main $pr_branch) $pr_branch
 
             # If there are conflicts during rebase, fail the job
             if [[ $(git status | grep "Unmerged paths") ]]; then
@@ -64,17 +65,16 @@ jobs:
             echo "PR $pr_number ($pr_branch) after rebase:"
             git log --oneline --decorate --graph
 
-            # Push the rebased branch (force-push safely)
+            # Force-push the rebased branch (with --force-with-lease to be safe)
             echo "Force-pushing rebased branch $pr_branch to origin..."
             git push origin $pr_branch --force-with-lease
 
           done
 
-      - name: Debug Final commit history check
+      - name: Debug - Final commit history check
         run: |
           echo "Checking final commit history after all rebases..."
           git log --oneline --decorate --graph
 
     env:
         GH_TOKEN: ${{ github.token }}
-
