@@ -25,8 +25,6 @@ jobs:
         run: |
           prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
           echo "::set-output name=prs::$prs"
-        env:
-          gh_token: ${{ secrets.GLCP_GH_TOKEN }}
       - name: Rebase each open PR
         run: |
           for pr in $(echo "${{ steps.pr_list.outputs.prs }}" | tr " " "\n")
