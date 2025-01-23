@@ -20,8 +20,15 @@ jobs:
       - name: Get list of open PRs
         id: pr_list
         run: |
+          # Fetch open PRs and store them in the prs variable
           prs=$(gh pr list --state open --json number,headRefName --jq -r '.[] | "\(.number) \(.headRefName)"')
+
+          # Print out the value of prs for debugging (optional)
+          echo "Fetched PRs: $prs"
+
+          # Write the prs to $GITHUB_ENV, ensuring it's properly quoted
           echo "prs=\"$prs\"" >> $GITHUB_ENV
+
 
 
       - name: Debug PR List
