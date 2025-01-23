@@ -3,7 +3,9 @@ on:
   push:
     branches:
       - master  
-
+env:
+  gh_token = ""
+  
 jobs:
   rebase:
     runs-on: ubuntu-latest
