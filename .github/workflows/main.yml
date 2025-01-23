@@ -51,9 +51,9 @@ jobs:
             echo "PR $pr_number ($pr_branch) before rebase:"
             git log --oneline --decorate --graph
 
-            # Force-rebase the PR branch onto main branch (reapply commits on top of main)
+            # Rebase the PR branch onto main branch (without interactive)
             echo "Rebasing $pr_branch onto main branch..."
-            git rebase --interactive --onto origin/main $(git merge-base origin/main $pr_branch) $pr_branch
+            git rebase origin/main
 
             # If there are conflicts during rebase, fail the job
             if [[ $(git status | grep "Unmerged paths") ]]; then
