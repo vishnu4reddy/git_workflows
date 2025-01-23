@@ -33,7 +33,7 @@ jobs:
             
             # Configure user for git operations
             git config user.name "vishnu4reddy"
-           
+            
             
             # Create a temporary branch to fetch main and avoid errors
             git checkout -b temp-branch
@@ -42,7 +42,7 @@ jobs:
             git fetch origin main
             
             # Checkout the PR branch and rebase onto the base branch
-            git checkout $pr_branch
+            git checkout $pr_branch || { echo "Failed to checkout PR branch: $pr_branch"; exit 1; }
             git rebase main || {
                 echo "Rebase failed for PR #$pr_number. Please resolve conflicts manually."
                 exit 1
@@ -54,5 +54,6 @@ jobs:
             # Switch back to the main branch (no need to delete temp-branch)
             git checkout main
           done
+
 
 
