@@ -12,7 +12,7 @@ jobs:
       - name: Install Github CLI Authenticate
         run: |
           sudo apt-get install gh
-          echi "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
       - name: Get list of open PRs
         id: pr_list
         run: >
