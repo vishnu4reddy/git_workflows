@@ -21,17 +21,17 @@ jobs:
         id: pr_list
         run: |
           # Fetch open PRs and format them correctly with jq
-            prs=$(gh pr list --state open --json number,headRefName --jq -r '.[] | "\(.number) \(.headRefName)"')
-            
-            # Print out the value of prs for debugging (optional)
-            echo "Fetched PRs: $prs"
-            
-            # Clean up any stray quotes or characters
-            # Strip leading/trailing whitespace from the result, if any
-            prs=$(echo "$prs" | sed 's/^ *//;s/ *$//')
-            
-            # Write the prs to $GITHUB_ENV, ensuring it's properly quoted (if needed)
-            echo "prs=$prs" >> $GITHUB_ENV
+          prs=$(gh pr list --state open --json number,headRefName --jq -r '.[] | "\(.number) \(.headRefName)"')
+          
+          # Check if the output is valid
+          echo "Fetched PRs: $prs"
+          
+          # Remove leading/trailing whitespace if present
+          prs=$(echo "$prs" | sed 's/^ *//;s/ *$//')
+          
+          # Write to $GITHUB_ENV, ensuring it is quoted correctly
+          echo "prs=\"$prs\"" >> $GITHUB_ENV
+
 
 
 
