@@ -21,7 +21,7 @@ jobs:
         id: pr_list
         run: |
           # Fetch open PRs and store them in the prs variable
-          prs=$(gh pr list --state open --json number,headRefName --jq -r '.[] | "\(.number) \(.headRefName)"')
+          prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
 
           # Print out the value of prs for debugging (optional)
           echo "Fetched PRs: $prs"
