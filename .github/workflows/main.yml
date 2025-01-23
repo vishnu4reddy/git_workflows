@@ -45,8 +45,7 @@ jobs:
             fi
             
             # Configure user for git operations
-            git config user.name "Your Name"
-            git config user.email "your_email@example.com"
+            git config user.name "vishnu4reddy"
             
             # Create a temporary branch to fetch main and avoid errors
             git checkout -b temp-branch
