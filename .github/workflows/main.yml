@@ -1,81 +1,56 @@
 name: Rebase Open PRs on Merge
-
 on:
   push:
     branches:
       - main
-
 jobs:
   rebase:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout the repository
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Github CLI Authenticate
+      - name: Set up Git
+        run: |
+          git config user.name "vishnu4reddy" 
+          git config user.email "vishnu4reddy" 
+
+      - name: Install GitHub CLI
         run: |
           sudo apt-get install gh
-          echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
       - name: Get list of open PRs
         id: pr_list
         run: |
-          # Fetch open PRs and format them correctly with jq
-          
-          prs=$(gh pr list --state open --json number,headRefName --jq -r '.[] | "\(.number) \(.headRefName)"')
-
-          # Output the value for debugging (optional)
-          echo "Fetched PRs: $prs"
-          
-          # Set the output value for use in later steps
+          prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
           echo "::set-output name=prs::$prs"
-
-
-
-
-
-      - name: Debug PR List
-        run: |
-          echo "List of open PRs: ${{ env.prs }}"
 
       - name: Rebase each open PR
         run: |
-          # Loop through each PR entry
-          for pr in ${{ env.prs }}; do
-            # Extract PR number and branch name from the list
+          for pr in $(echo "${{ steps.pr_list.outputs.prs }}" | tr " " "\n")
+          do
             pr_number=$(echo $pr | awk '{print $1}')
             pr_branch=$(echo $pr | awk '{print $2}')
 
-            # Debug output to verify PR number and branch
-            echo "Rebasing PR #$pr_number (Branch: $pr_branch)"
-            
-            # Ensure the PR branch is not empty
-            if [ -z "$pr_branch" ]; then
-              echo "No branch found for PR #$pr_number"
-              continue
-            fi
-            
-            # Configure user for git operations
-            git config user.name "vishnu4reddy"
-            
-            # Create a temporary branch to fetch main and avoid errors
-            git checkout -b temp-branch
+            echo "Rebasing PR #$pr_number ($pr_branch)"
 
             # Fetch the base branch (main)
             git fetch origin main
-            
-            # Checkout the PR branch and rebase onto the base branch
-            git checkout "$pr_branch" || { echo "Failed to checkout PR branch: $pr_branch"; exit 1; }
-            git rebase main || {
-                echo "Rebase failed for PR #$pr_number. Please resolve conflicts manually."
-                exit 1
-            }
-            
-            # Push the rebased branch (force-push safely)
-            git push origin "$pr_branch" --force-with-lease
 
-            # Switch back to the main branch (no need to delete temp-branch)
-            git checkout main
+            # Checkout the PR branch
+            git checkout $pr_branch
+
+            # Check if the PR is already up-to-date with the base branch (main)
+            if git merge-base --is-ancestor origin/main HEAD; then
+              echo "PR #$pr_number is already up-to-date with main, skipping rebase."
+            else
+              # Rebase onto the latest main branch
+              git rebase origin/main
+
+              # Push the rebased branch (force-push safely)
+              git push origin $pr_branch --force-with-lease
+            fi
           done
-
-
+    env:
+      GH_TOKEN: ${{ github.token }}
