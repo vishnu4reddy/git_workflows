@@ -35,12 +35,15 @@ jobs:
 
       - name: Rebase each open PR
         run: |
-          # Loop over each PR from the list
-          for pr in $(echo "${{ steps.pr_list.outputs.prs }}" | tr '\n' ' '); do
-            # Split the pr into number and branch using awk (make sure to only split by space)
-            pr_number=$(echo $pr | awk '{print $1}')
-            pr_branch=$(echo $pr | awk '{print $2}')
-            
+          # Get the list of open PRs with number and branch name (headRefName)
+          prs=$(gh pr list --state open --json number,headRefName)
+          
+          # Loop over each PR
+          echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
+            # Extract the PR number and branch name
+            pr_number=$(echo "$pr" | jq -r '.number')
+            pr_branch=$(echo "$pr" | jq -r '.headRefName')
+      
             # If pr_branch is empty, skip this iteration
             if [ -z "$pr_branch" ]; then
               echo "::warning::Skipping PR #$pr_number because branch name is empty."
