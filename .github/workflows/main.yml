@@ -25,6 +25,7 @@ jobs:
         run: |
           prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
           echo "::set-output name=prs::$prs"
+          echo "$prs"
       
       - name: Debug - Show current commit history on main branch
         run: |
