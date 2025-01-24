@@ -39,7 +39,7 @@ jobs:
           do
             pr_number=$(echo $pr | awk '{print $1}')
             pr_branch=$(echo $pr | awk '{print $2}')
-            echo"$pr prs for the branch"
+            echo "$pr prs for the branch"
             echo "Rebasing PR #$pr_number ($pr_branch)"
             echo "Rebaising PR $pr_branch" 
             # Fetch the latest changes from the base branch (main)
