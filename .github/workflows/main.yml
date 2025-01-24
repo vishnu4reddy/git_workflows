@@ -35,44 +35,47 @@ jobs:
 
       - name: Rebase each open PR
         run: |
-          for pr in $(echo "${{ steps.pr_list.outputs.prs }}" | tr " " "\n")
-          
+          # Loop over each PR from the list
+          for pr in $(echo "${{ steps.pr_list.outputs.prs }}" | tr "\n" " ")
           do
+            # Split the pr into number and branch using awk
             pr_number=$(echo $pr | awk '{print $1}')
             pr_branch=$(echo $pr | awk '{print $2}')
-            echo "$pr prs for the branch"
+      
             echo "Rebasing PR #$pr_number ($pr_branch)"
-            echo "Rebaising PR branch $pr_branch" 
-            echo "$(pr_number, pr_branch)"
-            # Fetch the latest changes from the base branch (main)
+      
+            # Fetch the latest changes from the main and PR branch
             git fetch origin main
-
+            git fetch origin $pr_branch
+      
             # Checkout the PR branch
             git checkout $pr_branch
-
+      
             # Show the commit history of the PR branch before rebase
             echo "PR $pr_number ($pr_branch) before rebase:"
             git log --oneline --decorate --graph
-
-            # Rebase the PR branch onto main branch (without interactive)
+      
+            # Rebase the PR branch onto main branch
             echo "Rebasing $pr_branch onto main branch..."
             git rebase origin/main
-
+      
             # If there are conflicts during rebase, fail the job
             if [[ $(git status | grep "Unmerged paths") ]]; then
               echo "::error ::Merge conflict occurred in PR $pr_number ($pr_branch). Please resolve manually."
               exit 1
             fi
-
+      
             # Show the commit history of the PR branch after rebase
             echo "PR $pr_number ($pr_branch) after rebase:"
             git log --oneline --decorate --graph
-
-            # Force-push the rebased branch (with --force-with-lease to be safe)
-            echo "Force-pushing rebased branch $pr_branch to origin..."
+      
+            # Force-push the rebased branch
             git push origin $pr_branch --force-with-lease
-
+      
+            # Verify after push
+            git log --oneline --decorate --graph origin/$pr_branch
           done
+
 
       - name: Debug - Final commit history check
         run: |
