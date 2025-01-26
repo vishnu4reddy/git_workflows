@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+
 jobs:
   rebase:
     runs-on: ubuntu-latest
@@ -65,15 +66,18 @@ jobs:
       
             # Rebase the PR branch onto the main branch
             echo "Rebasing $pr_branch onto main branch..."
-            git rebase origin/main || {
+            git rebase origin/main
+            
+            # Check if the rebase was successful
+            if [ $? -ne 0 ]; then
               echo "::warning::Conflict occurred during rebase for PR #$pr_number ($pr_branch). Skipping this PR."
-      
+              
               # Abort the rebase if conflicts occurred
               git rebase --abort
               
               # Skip the PR and move to the next
               continue
-            }
+            fi
 
             # After rebase, check if the PR branch is ahead of the main branch
             behind_ahead=$(git rev-list --left-right --count origin/main...HEAD)
@@ -101,4 +105,5 @@ jobs:
 
     env:
         GH_TOKEN: ${{ github.token }}
+
 
