@@ -1,8 +1,9 @@
-name: Rebase Open PRs on Merge
+name: Rebase Remaining PRs on Merge
+
 on:
   push:
     branches:
-      - main
+      - main  # Trigger on main branch push (e.g., after merging a PR)
 
 jobs:
   rebase:
@@ -27,64 +28,38 @@ jobs:
           prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
           echo "::set-output name=prs::$prs"
           echo "$prs"
-      
-      - name: Debug - Show current commit history on main branch
-        run: |
-          echo "Fetching latest main branch history..."
-          git fetch origin main
-          git log --oneline --decorate --graph origin/main
 
-      - name: Rebase each open PR
+      - name: Rebase remaining PRs onto main branch
         run: |
           prs=$(gh pr list --state open --json number,headRefName)
           
+          # Loop through each open PR and rebase
           echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
             pr_number=$(echo "$pr" | jq -r '.number')
             pr_branch=$(echo "$pr" | jq -r '.headRefName')
-      
+
             if [ -z "$pr_branch" ]; then
               echo "::warning::Skipping PR #$pr_number because branch name is empty."
               continue
             fi
-      
-            echo "Checking for conflicts in PR #$pr_number ($pr_branch)..."
-            
-            # Fetch the latest changes
+
+            echo "Rebasing PR #$pr_number ($pr_branch) onto main branch..."
+
+            # Fetch the latest main and PR branch
             git fetch origin main
             git fetch origin "$pr_branch"
-            
+
             # Checkout the PR branch
             git checkout "$pr_branch"
 
-            # Attempt a merge to check for conflicts, allowing unrelated histories
-            git merge --no-commit --no-ff origin/main --allow-unrelated-histories || {
-              echo "::warning::Conflict detected in PR #$pr_number ($pr_branch). Skipping rebase."
-              git merge --abort
-              continue
-            }
+            # Rebase the PR branch onto the latest main branch
+            if git rebase origin/main; then
+              echo "Rebasing of PR #$pr_number ($pr_branch) successful!"
 
-            # Now, attempt the rebase
-            echo "Rebasing PR #$pr_number ($pr_branch) onto main branch..."
-            if ! git rebase origin/main; then
-              echo "::warning::Conflict occurred during rebase for PR #$pr_number ($pr_branch). Skipping this PR."
+              # Force-push the rebased branch to the remote
+              git push origin "$pr_branch" --force-with-lease
+            else
+              echo "::warning::Rebase failed for PR #$pr_number ($pr_branch). Skipping this PR."
               git rebase --abort
-              continue
             fi
-
-            # Show the commit history after rebase
-            echo "PR $pr_number ($pr_branch) after rebase:"
-            git log --oneline --decorate --graph
-
-            # Force-pushing rebased branch to origin
-            echo "Force-pushing rebased branch $pr_branch to origin..."
-            git push origin "$pr_branch" --force-with-lease
-
           done
-
-      - name: Debug - Final commit history check
-        run: |
-          echo "Checking final commit history after all rebases..."
-          git log --oneline --decorate --graph
-
-    env:
-      GH_TOKEN: ${{ github.token }}
