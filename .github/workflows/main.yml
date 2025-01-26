@@ -47,27 +47,31 @@ jobs:
               continue
             fi
       
-            echo "Rebasing PR #$pr_number ($pr_branch)"
+            echo "Checking for conflicts in PR #$pr_number ($pr_branch)..."
+            
+            # Fetch the latest changes
             git fetch origin main
             git fetch origin "$pr_branch"
+            
+            # Checkout the PR branch
             git checkout "$pr_branch"
 
-            # Ensure the working directory is clean before rebasing
-            git status || { echo "::error::Failed to check status"; exit 1; }
+            # Attempt a merge to check for conflicts
+            git merge --no-commit --no-ff origin/main || {
+              echo "::warning::Conflict detected in PR #$pr_number ($pr_branch). Skipping rebase."
+              git merge --abort
+              continue
+            }
 
-            # Show the commit history of the PR branch before rebase
-            echo "PR $pr_number ($pr_branch) before rebase:"
-            git log --oneline --decorate --graph
-
-            # Rebase the PR branch onto the main branch
-            echo "Rebasing $pr_branch onto main branch..."
+            # Now, attempt the rebase
+            echo "Rebasing PR #$pr_number ($pr_branch) onto main branch..."
             if ! git rebase origin/main; then
               echo "::warning::Conflict occurred during rebase for PR #$pr_number ($pr_branch). Skipping this PR."
               git rebase --abort
               continue
             fi
 
-            # Show the commit history of the PR branch after rebase
+            # Show the commit history after rebase
             echo "PR $pr_number ($pr_branch) after rebase:"
             git log --oneline --decorate --graph
 
