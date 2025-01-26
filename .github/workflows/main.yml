@@ -63,3 +63,5 @@ jobs:
               git rebase --abort
             fi
           done
+    env:
+      GH_TOKEN: ${{ github.token }}
