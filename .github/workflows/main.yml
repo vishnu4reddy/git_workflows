@@ -56,8 +56,8 @@ jobs:
             # Checkout the PR branch
             git checkout "$pr_branch"
 
-            # Attempt a merge to check for conflicts
-            git merge --no-commit --no-ff origin/main || {
+            # Attempt a merge to check for conflicts, allowing unrelated histories
+            git merge --no-commit --no-ff origin/main --allow-unrelated-histories || {
               echo "::warning::Conflict detected in PR #$pr_number ($pr_branch). Skipping rebase."
               git merge --abort
               continue
@@ -88,5 +88,3 @@ jobs:
 
     env:
       GH_TOKEN: ${{ github.token }}
-
-
