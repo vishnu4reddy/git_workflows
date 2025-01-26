@@ -50,7 +50,7 @@ jobs:
             echo "Checking for conflicts in PR #$pr_number ($pr_branch)..."
             
             # Fetch the latest changes
-            git fetch origin/main
+            git fetch origin main
             git fetch origin "$pr_branch"
             
             # Checkout the PR branch
