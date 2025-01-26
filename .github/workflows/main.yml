@@ -31,7 +31,7 @@ jobs:
       - name: Debug - Show current commit history on main branch
         run: |
           echo "Fetching latest main branch history..."
-          git fetch origin main
+          git fetch origin/main
           git log --oneline --decorate --graph origin/main
 
       - name: Rebase each open PR
@@ -50,7 +50,7 @@ jobs:
             echo "Checking for conflicts in PR #$pr_number ($pr_branch)..."
             
             # Fetch the latest changes
-            git fetch origin main
+            git fetch origin/main
             git fetch origin "$pr_branch"
             
             # Checkout the PR branch
