@@ -34,7 +34,6 @@ jobs:
           git log --oneline --decorate --graph origin/main
 
       - name: Rebase each open PR
-        
         run: |
           # Get the list of open PRs with number and branch name (headRefName)
           prs=$(gh pr list --state open --json number,headRefName)
@@ -66,21 +65,15 @@ jobs:
       
             # Rebase the PR branch onto the main branch
             echo "Rebasing $pr_branch onto main branch..."
-            git rebase origin/main
+            git rebase origin/main || {
+              echo "::warning::Conflict occurred during rebase for PR #$pr_number ($pr_branch). Skipping this PR."
       
-            # Check if rebase failed due to conflicts
-            if [ $? -ne 0 ]; then
-              # Check for conflicts
-              if git status | grep -q "Unmerged paths"; then
-                echo "::warning::Conflict occurred during rebase for PR #$pr_number ($pr_branch). Skipping this PR."
-                
-                # Abort the rebase to leave the branch in its current state
-                git rebase --abort
-      
-                # Skip the rebase for this PR and move to the next one
-                continue
-              fi
-            fi
+              # Abort the rebase if conflicts occurred
+              git rebase --abort
+              
+              # Skip the PR and move to the next
+              continue
+            }
       
             # Show the commit history of the PR branch after rebase
             echo "PR $pr_number ($pr_branch) after rebase:"
