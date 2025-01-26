@@ -14,13 +14,13 @@ jobs:
 
       - name: Set up Git
         run: |
-          git config user.name "vishnu4reddy"  
-          git config user.email "vishnu4reddy@users.noreply.github.com"  
+          git config user.name "vishnu4reddy"
+          git config user.email "vishnu4reddy@users.noreply.github.com"
 
       - name: Install GitHub CLI
         run: |
           sudo apt-get install gh
-        
+
       - name: Get list of open PRs
         id: pr_list
         run: |
@@ -35,59 +35,47 @@ jobs:
           git log --oneline --decorate --graph origin/main
 
       - name: Rebase each open PR
-     
         run: |
-          # Get the list of open PRs with number and branch name (headRefName)
           prs=$(gh pr list --state open --json number,headRefName)
           
-          # Loop over each PR
           echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
-            # Extract the PR number and branch name
             pr_number=$(echo "$pr" | jq -r '.number')
             pr_branch=$(echo "$pr" | jq -r '.headRefName')
       
-            # If pr_branch is empty, skip this iteration
             if [ -z "$pr_branch" ]; then
               echo "::warning::Skipping PR #$pr_number because branch name is empty."
               continue
             fi
       
             echo "Rebasing PR #$pr_number ($pr_branch)"
-      
-            # Fetch the latest changes from the main and PR branch
             git fetch origin main
             git fetch origin "$pr_branch"
-      
-            # Checkout the PR branch
             git checkout "$pr_branch"
-      
+
+            # Ensure the working directory is clean before rebasing
+            git status || { echo "::error::Failed to check status"; exit 1; }
+
             # Show the commit history of the PR branch before rebase
             echo "PR $pr_number ($pr_branch) before rebase:"
             git log --oneline --decorate --graph
-      
+
             # Rebase the PR branch onto the main branch
             echo "Rebasing $pr_branch onto main branch..."
             if ! git rebase origin/main; then
               echo "::warning::Conflict occurred during rebase for PR #$pr_number ($pr_branch). Skipping this PR."
-              
-              # Abort the rebase and skip the PR
               git rebase --abort
               continue
             fi
-      
+
             # Show the commit history of the PR branch after rebase
             echo "PR $pr_number ($pr_branch) after rebase:"
             git log --oneline --decorate --graph
-      
-            # Force-push the rebased branch
+
+            # Force-pushing rebased branch to origin
             echo "Force-pushing rebased branch $pr_branch to origin..."
             git push origin "$pr_branch" --force-with-lease
-      
-            # Verify after push
-            git log --oneline --decorate --graph "origin/$pr_branch"
+
           done
-
-
 
       - name: Debug - Final commit history check
         run: |
@@ -95,6 +83,6 @@ jobs:
           git log --oneline --decorate --graph
 
     env:
-        GH_TOKEN: ${{ github.token }}
+      GH_TOKEN: ${{ github.token }}
 
 
