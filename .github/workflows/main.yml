@@ -1,10 +1,19 @@
+name: Rebase Remaining PRs on Merge
 on:
   push:
     branches:
-      - main  # Trigger on main branch push (e.g., after merging a PR)
+      - main  
 permissions:
   contents: write
+  checks: read
+  deployments: read
+  discussions: read
+  issues: read
+  pages: read
+  packages: read
   pull-requests: read
+  repository-projects: read
+  security-events: read
   statuses: read
 jobs:
   rebase:
@@ -14,33 +23,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # Provide the token for authentication
-      # Step 2: Set up Git with user info
-      - name: Set up Git
-        run: |
-          git config user.name "vishnu4reddy"
-          git config user.email "vishnu4reddy@users.noreply.github.com"
+          token: ${{ secrets.PAT_NAME }} 
       # Step 3: Install GitHub CLI
       - name: Install GitHub CLI
         run: |
           sudo apt-get install gh
-      # Step 4: Get list of open PRs
+      # Step 4: Debug the GitHub token permissions (This will print if the token is set correctly)
+      - name: Debug the GitHub token permissions
+        run: |
+          echo "GH_TOKEN is set: ${{ secrets.GITHUB_TOKEN != '' }}"
+      # Step 5: Get list of open PRs
       - name: Get list of open PRs
         id: pr_list
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Pass the GitHub token here
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Pass the token explicitly to gh CLI
+          PAT_TOKEN: ${{ secrets.PAT_NAME }}
         run: |
           prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
-          echo "PR List: $prs"
           echo "::set-output name=prs::$prs"
-      # Step 5: Rebase remaining PRs onto the main branch
+          echo "$prs"
+      # Step 6: Rebase remaining PRs onto main branch
       - name: Rebase remaining PRs onto main branch
+        env:
+          GH_TOKEN: ${{ secrets.PAT_NAME }}
         run: |
-          prs="${{ steps.pr_list.outputs.prs }}"
+          prs=$(gh pr list --state open --json number,headRefName)
           # Loop through each open PR and rebase
-          echo "$prs" | while IFS= read -r pr; do
-            pr_number=$(echo "$pr" | awk '{print $1}')
-            pr_branch=$(echo "$pr" | awk '{print $2}')
+          echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
+            pr_number=$(echo "$pr" | jq -r '.number')
+            pr_branch=$(echo "$pr" | jq -r '.headRefName')
             if [ -z "$pr_branch" ]; then
               echo "::error::Skipping PR #$pr_number because branch name is empty."
               continue
@@ -60,22 +71,24 @@ jobs:
               continue
             fi
             # Start the rebase process
-            echo "Starting rebase of PR #$pr_number onto latest commit from main..."
-            # Rebase the PR branch onto the latest commit from the main branch
+            echo "Starting rebase of PR #$pr_number..."
+            # Rebase the PR branch onto the main branch
             git rebase origin/main || {
-              echo "::warning::Rebase failed for PR #$pr_number ($pr_branch) due to conflicts. Attempting to skip conflicted commits..."
-      
-              # Automatically skip the commit causing the conflict
-              git rebase --skip || {
-                echo "::error::Rebase skipped commit failed for PR #$pr_number. Skipping entire PR due to unresolved conflict."
-                git rebase --abort
-                continue
-              }
+              echo "::error::Rebase failed for PR #$pr_number. Trying to skip conflicting commits."
+              # Keep skipping the conflicting commits until the rebase is successful
+              while ! git rebase --skip; do
+                echo "::warning::Skipping commit due to conflict. Trying again..."
+              done
             }
             # After the rebase is successful, push the rebased PR
             echo "Rebasing of PR #$pr_number ($pr_branch) successful!"
-            # Push the rebased PR to the remote
             git remote set-url origin https://x-access-token:${{ secrets.PAT_NAME }}@github.com/vishnu4reddy/work1.git
             git push origin "$pr_branch" --force-with-lease
             echo "Successfully pushed rebased PR #$pr_number ($pr_branch)."
           done
+
+
+
+
+
+
