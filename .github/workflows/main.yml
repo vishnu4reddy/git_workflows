@@ -73,21 +73,6 @@ jobs:
           # Push the resolved changes back to the PR branch
           git push origin ${{ github.head_ref }}
 
-      # - name: Check if PR is behind main
-      #   id: check_pr_status
-      #   run: |
-      #     # Get the commit hashes of the main and PR branches
-      #     MAIN_COMMIT=$(git rev-parse origin/main)
-      #     PR_COMMIT=$(git rev-parse HEAD)
-
-      #     # Compare the commits to see if the PR is up-to-date with main
-      #     if [ "$MAIN_COMMIT" != "$PR_COMMIT" ]; then
-      #       echo "PR is not up-to-date with main. The PR is behind and should not be merged yet."
-      #       exit 1
-      #     else
-      #       echo "PR is up-to-date with main. Safe to merge."
-      #     fi
-
       - name: Merge PR into main branch if no conflicts and up-to-date
         if: success() && steps.check_pr_status.outcome == 'success'
         run: |
