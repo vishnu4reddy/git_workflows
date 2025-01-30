@@ -1,67 +1,93 @@
-name: Rebase Remaining PRs on Merge
+name: Auto Resolve Conflicts and Merge PR
 
 on:
-  push:
+  pull_request:
     branches:
-      - main  # Trigger on main branch push (e.g., after merging a PR)
+      - main
+    types:
+      - opened
+      # - synchronize
+      - reopened
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  rebase:
+  check-pr-and-resolve-conflict:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up Git
         run: |
-          git config user.name "vishnu4reddy"
-          git config user.email "vishnu4reddy@users.noreply.github.com"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Install GitHub CLI
+      - name: Fetch the main branch and PR branch
         run: |
-          sudo apt-get install gh
+          git fetch origin main
+          git fetch origin ${{ github.head_ref }}
 
-      - name: Get list of open PRs
-        id: pr_list
+      - name: Update PR branch with latest changes from main
         run: |
-          prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
-          echo "::set-output name=prs::$prs"
-          echo "$prs"
+          # Fetch latest changes from main
+          git fetch origin main
+          git switch ${{ github.head_ref }}
+          git rebase origin/main || exit 1
 
-      - name: Rebase remaining PRs onto main branch
+      - name: Get PR number, branch name and source branch
         run: |
-          prs=$(gh pr list --state open --json number,headRefName)
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "Source Branch: ${{ github.head_ref }}"
+          echo "Target Branch: main"
+
+      - name: Check for conflicts with main branch
+        id: check_conflicts
+        run: |
+          # Fetch the latest changes from the main branch
+          git fetch origin main
+
+          # Checkout the PR branch (no need to create a new branch, just switch to the existing remote branch)
+          git checkout ${{ github.head_ref }}
+
+          # Allow merging unrelated histories if the branches don't share a common history
+          git merge --no-ff origin/main --allow-unrelated-histories || echo "Merge conflict detected"  #forcefully we are merging the PR
+
+      - name: Handle merge conflicts if they exist
+        if: failure() && steps.check_conflicts.outcome == 'failure'
+        run: |
+          echo "Conflicts detected, attempting to resolve them..."
           
-          # Loop through each open PR and rebase
-          echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
-            pr_number=$(echo "$pr" | jq -r '.number')
-            pr_branch=$(echo "$pr" | jq -r '.headRefName')
+          # Merge using 'ours' strategy to automatically resolve conflicts
+          git merge --strategy=ours origin/main
 
-            if [ -z "$pr_branch" ]; then
-              echo "::warning::Skipping PR #$pr_number because branch name is empty."
-              continue
-            fi
+          # Add all resolved files
+          git add .
 
-            echo "Rebasing PR #$pr_number ($pr_branch) onto main branch..."
+          # Commit the resolution
+          git commit -m "Resolved conflicts with main branch"
 
-            # Fetch the latest main and PR branch
-            git fetch origin main
-            git fetch origin "$pr_branch"
+          # Push the resolved changes back to the PR branch
+          git push origin ${{ github.head_ref }}
 
-            # Checkout the PR branch
-            git checkout "$pr_branch"
+      - name: Merge PR into main branch if no conflicts and up-to-date
+        if: success() && steps.check_pr_status.outcome == 'success'
+        run: |
+          # Checkout the main branch
+          git checkout main
+          
+          # Pull the latest changes from main
+          git pull origin main
+          
+          # Merge the PR branch into main
+          git merge ${{ github.head_ref }}
 
-            # Rebase the PR branch onto the latest main branch
-            if git rebase origin/main; then
-              echo "Rebasing of PR #$pr_number ($pr_branch) successful!"
+          # Push the merged changes to the main branch
+          git push origin main
 
-              # Force-push the rebased branch to the remote
-              git push origin "$pr_branch" --force-with-lease
-            else
-              echo "::warning::Rebase failed for PR #$pr_number ($pr_branch). Skipping this PR."
-              git rebase --abort
-            fi
-          done
-    env:
-      GH_TOKEN: ${{ github.token }}
+      - name: Output PR information
+        run: |
+          echo "PR #${{ github.event.pull_request.number }} from branch ${{ github.head_ref }} has been successfully merged into main."
