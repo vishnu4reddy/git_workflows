@@ -9,6 +9,10 @@ on:
       - synchronize
       - reopened
 
+permissions:
+  contents: write  # Grant write permissions to the repository contents
+  pull-requests: write  # Allow writing pull request information
+
 jobs:
   check-pr-and-resolve-conflict:
     runs-on: ubuntu-latest
@@ -35,25 +39,40 @@ jobs:
       - name: Check for conflicts with main branch
         id: check_conflicts
         run: |
+          # Fetch the latest changes from the main branch
           git fetch origin main
+
+          # Create a temporary branch for the PR
           git checkout -b pr-branch ${{ github.head_ref }}
+
+          # Attempt to merge with main and capture conflicts
           git merge --no-ff origin/main || echo "Merge conflict detected"
 
       - name: Handle merge conflicts if they exist
         if: failure() && steps.check_conflicts.outcome == 'failure'
         run: |
           echo "Conflicts detected, attempting to resolve them..."
-          git merge --strategy-option=ours origin/main
+          
+          # Merge using 'ours' strategy to automatically resolve conflicts
+          git merge --strategy=ours origin/main
+
+          # Add all resolved files
           git add .
-          git commit -m "Resolved conflicts with main"
+
+          # Commit the resolution
+          git commit -m "Resolved conflicts with main branch"
+
+          # Push the resolved changes back to the PR branch
           git push origin ${{ github.head_ref }}
 
       - name: Check if PR is behind main
         id: check_pr_status
         run: |
+          # Get the commit hashes of the main and PR branches
           MAIN_COMMIT=$(git rev-parse origin/main)
           PR_COMMIT=$(git rev-parse HEAD)
 
+          # Compare the commits to see if the PR is up-to-date with main
           if [ "$MAIN_COMMIT" != "$PR_COMMIT" ]; then
             echo "PR is not up-to-date with main. The PR is behind and should not be merged yet."
             exit 1
@@ -64,9 +83,16 @@ jobs:
       - name: Merge PR into main branch if no conflicts and up-to-date
         if: success() && steps.check_pr_status.outcome == 'success'
         run: |
+          # Checkout the main branch
           git checkout main
+          
+          # Pull the latest changes from main
           git pull origin main
+          
+          # Merge the PR branch into main
           git merge ${{ github.head_ref }}
+
+          # Push the merged changes to the main branch
           git push origin main
 
       - name: Output PR information
