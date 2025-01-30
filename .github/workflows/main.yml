@@ -35,7 +35,7 @@ jobs:
         run: |
           # Fetch latest changes from main
           git fetch origin main
-          git checkout ${{ github.head_ref }}
+          git switch ${{ github.head_ref }}
           git rebase origin/main || exit 1
 
       - name: Get PR number, branch name and source branch
