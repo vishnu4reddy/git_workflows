@@ -63,10 +63,11 @@ jobs:
 
       - name: Merge PR into main branch if no conflicts and up-to-date
         if: success() && steps.check_pr_status.outcome == 'success'
-        uses: peter-evans/merge-pull-request@v3
-        with:
-          pull-request-number: ${{ github.event.pull_request.number }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git checkout main
+          git pull origin main
+          git merge ${{ github.head_ref }}
+          git push origin main
 
       - name: Output PR information
         run: |
