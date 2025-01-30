@@ -31,6 +31,13 @@ jobs:
           git fetch origin main
           git fetch origin ${{ github.head_ref }}
 
+      - name: Update PR branch with latest changes from main
+        run: |
+          # Fetch latest changes from main
+          git fetch origin main
+          git checkout ${{ github.head_ref }}
+          git rebase origin/main || exit 1
+
       - name: Get PR number, branch name and source branch
         run: |
           echo "PR Number: ${{ github.event.pull_request.number }}"
@@ -40,11 +47,14 @@ jobs:
       - name: Check for conflicts with main branch
         id: check_conflicts
         run: |
-          # Checkout the PR branch from remote
+          # Fetch the latest changes from the main branch
+          git fetch origin main
+
+          # Checkout the PR branch (no need to create a new branch, just switch to the existing remote branch)
           git checkout ${{ github.head_ref }}
 
-          # Attempt to merge with main and capture conflicts
-          git merge --no-ff origin/main || echo "Merge conflict detected"
+          # Allow merging unrelated histories if the branches don't share a common history
+          git merge --no-ff origin/main --allow-unrelated-histories || echo "Merge conflict detected"
 
       - name: Handle merge conflicts if they exist
         if: failure() && steps.check_conflicts.outcome == 'failure'
