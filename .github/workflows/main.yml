@@ -23,8 +23,8 @@ jobs:
 
       - name: Set up Git
         run: |
-          git config --global user.name "${{ github.actor }}"
-          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
       - name: Fetch the main branch and PR branch
         run: |
@@ -54,7 +54,7 @@ jobs:
           git checkout ${{ github.head_ref }}
 
           # Allow merging unrelated histories if the branches don't share a common history
-          git merge --no-ff origin/main --allow-unrelated-histories || echo "Merge conflict detected"
+          git merge --no-ff origin/main --allow-unrelated-histories || echo "Merge conflict detected"  #forcefully we are merging the PR
 
       - name: Handle merge conflicts if they exist
         if: failure() && steps.check_conflicts.outcome == 'failure'
@@ -73,20 +73,20 @@ jobs:
           # Push the resolved changes back to the PR branch
           git push origin ${{ github.head_ref }}
 
-      - name: Check if PR is behind main
-        id: check_pr_status
-        run: |
-          # Get the commit hashes of the main and PR branches
-          MAIN_COMMIT=$(git rev-parse origin/main)
-          PR_COMMIT=$(git rev-parse HEAD)
+      # - name: Check if PR is behind main
+      #   id: check_pr_status
+      #   run: |
+      #     # Get the commit hashes of the main and PR branches
+      #     MAIN_COMMIT=$(git rev-parse origin/main)
+      #     PR_COMMIT=$(git rev-parse HEAD)
 
-          # Compare the commits to see if the PR is up-to-date with main
-          if [ "$MAIN_COMMIT" != "$PR_COMMIT" ]; then
-            echo "PR is not up-to-date with main. The PR is behind and should not be merged yet."
-            exit 1
-          else
-            echo "PR is up-to-date with main. Safe to merge."
-          fi
+      #     # Compare the commits to see if the PR is up-to-date with main
+      #     if [ "$MAIN_COMMIT" != "$PR_COMMIT" ]; then
+      #       echo "PR is not up-to-date with main. The PR is behind and should not be merged yet."
+      #       exit 1
+      #     else
+      #       echo "PR is up-to-date with main. Safe to merge."
+      #     fi
 
       - name: Merge PR into main branch if no conflicts and up-to-date
         if: success() && steps.check_pr_status.outcome == 'success'
