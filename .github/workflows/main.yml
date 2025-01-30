@@ -10,8 +10,8 @@ on:
       - reopened
 
 permissions:
-  contents: write  # Grant write permissions to the repository contents
-  pull-requests: write  # Allow writing pull request information
+  contents: write
+  pull-requests: write
 
 jobs:
   check-pr-and-resolve-conflict:
@@ -26,9 +26,10 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Fetch the main branch
+      - name: Fetch the main branch and PR branch
         run: |
           git fetch origin main
+          git fetch origin ${{ github.head_ref }}
 
       - name: Get PR number, branch name and source branch
         run: |
@@ -39,11 +40,8 @@ jobs:
       - name: Check for conflicts with main branch
         id: check_conflicts
         run: |
-          # Fetch the latest changes from the main branch
-          git fetch origin main
-
-          # Create a temporary branch for the PR
-          git checkout -b pr-branch ${{ github.head_ref }}
+          # Checkout the PR branch from remote
+          git checkout ${{ github.head_ref }}
 
           # Attempt to merge with main and capture conflicts
           git merge --no-ff origin/main || echo "Merge conflict detected"
@@ -98,6 +96,3 @@ jobs:
       - name: Output PR information
         run: |
           echo "PR #${{ github.event.pull_request.number }} from branch ${{ github.head_ref }} has been successfully merged into main."
-
-
-
