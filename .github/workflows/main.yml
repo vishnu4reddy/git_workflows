@@ -1,100 +1,76 @@
-name: Rebase Remaining PRs on Merge
+name: Auto Resolve Conflicts and Merge PR
+
 on:
-  push:
+  pull_request:
     branches:
-      - main  
-permissions:
-  contents: write
-  checks: read
-  deployments: read
-  discussions: read
-  issues: read
-  pages: read
-  packages: read
-  pull-requests: read
-  repository-projects: read
-  security-events: read
-  statuses: read
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+
 jobs:
-  rebase:
+  check-pr-and-resolve-conflict:
     runs-on: ubuntu-latest
+
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.PAT_NAME }}
 
-      # Step 2: Set up Git with user info
       - name: Set up Git
         run: |
-          git config user.name "vishnu4reddy"
-          git config user.email "vishnu4reddy@users.noreply.github.com"
-      # Step 3: Install GitHub CLI
-      - name: Install GitHub CLI
-        run: |
-          sudo apt-get install gh
-      # Step 4: Debug the GitHub token permissions (This will print if the token is set correctly)
-      - name: Debug the GitHub token permissions
-        run: |
-          echo "GH_TOKEN is set: ${{ secrets.GITHUB_TOKEN != '' }}"
-      # Step 5: Get list of open PRs
-      - name: Get list of open PRs
-        id: pr_list
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Pass the token explicitly to gh CLI
-          PAT_TOKEN: ${{ secrets.PAT_NAME }}
-        run: |
-          prs=$(gh pr list --state open --json number,headRefName --jq '.[] | "\(.number) \(.headRefName)"')
-          echo "::set-output name=prs::$prs"
-          echo "$prs"
-      # Step 6: Rebase remaining PRs onto main branch
-      - name: Rebase remaining PRs onto main branch
-        env:
-          GH_TOKEN: ${{ secrets.PAT_NAME }}
-        run: |
-          prs=$(gh pr list --state open --json number,headRefName)
-          # Loop through each open PR and rebase
-          echo "$prs" | jq -c '.[]' | while IFS= read -r pr; do
-            pr_number=$(echo "$pr" | jq -r '.number')
-            pr_branch=$(echo "$pr" | jq -r '.headRefName')
-            if [ -z "$pr_branch" ]; then
-              echo "::error::Skipping PR #$pr_number because branch name is empty."
-              continue
-            fi
-            echo "Rebasing PR #$pr_number ($pr_branch) onto main branch..."
-            # Fetch the latest main branch and the PR branch
-            git fetch origin
-            # Checkout the main branch and pull the latest changes
-            git checkout main
-            git pull origin main
-            # Checkout the PR branch and pull the latest changes from the PR branch
-            git checkout "$pr_branch"
-            git pull origin "$pr_branch"
-            # Ensure there are no uncommitted changes before rebasing
-            if [ -n "$(git status --porcelain)" ]; then
-              echo "::error::There are uncommitted changes in PR #$pr_number ($pr_branch). Please commit or stash them before proceeding."
-              continue
-            fi
-            # Start the rebase process
-            echo "Starting rebase of PR #$pr_number..."
-            # Rebase the PR branch onto the main branch
-            git rebase origin/main || {
-              echo "::error::Rebase failed for PR #$pr_number. Trying to skip conflicting commits."
-              # Keep skipping the conflicting commits until the rebase is successful
-              while ! git rebase --skip; do
-                echo "::warning::Skipping commit due to conflict. Trying again..."
-              done
-            }
-            # After the rebase is successful, push the rebased PR
-            echo "Rebasing of PR #$pr_number ($pr_branch) successful!"
-            git remote set-url origin https://x-access-token:${{ secrets.PAT_NAME }}@github.com/vishnu4reddy/work1.git
-            git push origin "$pr_branch" --force-with-lease
-            echo "Successfully pushed rebased PR #$pr_number ($pr_branch)."
-          done
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
+      - name: Fetch the main branch
+        run: |
+          git fetch origin main
 
+      - name: Get PR number, branch name and source branch
+        run: |
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "Source Branch: ${{ github.head_ref }}"
+          echo "Target Branch: main"
 
+      - name: Check for conflicts with main branch
+        id: check_conflicts
+        run: |
+          git fetch origin main
+          git checkout -b pr-branch ${{ github.head_ref }}
+          git merge --no-ff origin/main || echo "Merge conflict detected"
+
+      - name: Handle merge conflicts if they exist
+        if: failure() && steps.check_conflicts.outcome == 'failure'
+        run: |
+          echo "Conflicts detected, attempting to resolve them..."
+          git merge --strategy-option=ours origin/main
+          git add .
+          git commit -m "Resolved conflicts with main"
+          git push origin ${{ github.head_ref }}
+
+      - name: Check if PR is behind main
+        id: check_pr_status
+        run: |
+          MAIN_COMMIT=$(git rev-parse origin/main)
+          PR_COMMIT=$(git rev-parse HEAD)
+
+          if [ "$MAIN_COMMIT" != "$PR_COMMIT" ]; then
+            echo "PR is not up-to-date with main. The PR is behind and should not be merged yet."
+            exit 1
+          else
+            echo "PR is up-to-date with main. Safe to merge."
+          fi
+
+      - name: Merge PR into main branch if no conflicts and up-to-date
+        if: success() && steps.check_pr_status.outcome == 'success'
+        uses: peter-evans/merge-pull-request@v3
+        with:
+          pull-request-number: ${{ github.event.pull_request.number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Output PR information
+        run: |
+          echo "PR #${{ github.event.pull_request.number }} from branch ${{ github.head_ref }} has been successfully merged into main."
 
 
 
